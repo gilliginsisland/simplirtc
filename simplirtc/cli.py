@@ -1,3 +1,4 @@
+import sys
 from typing import (
     Any,
     Callable,
@@ -15,7 +16,6 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 SyncAsync = Callable[P, R] | Callable[P, Coroutine[Any, Any, R]]
-CommandFn = SyncAsync[..., int]
 Argument = tuple[tuple[Any, ...], dict[str, Any]]
 
 
@@ -28,9 +28,9 @@ class CLI:
         for arg_args, arg_kwargs in args:
             self._parser.add_argument(*arg_args, **arg_kwargs)
 
-    def command(self, *args: Argument) -> Callable[[CommandFn], CommandFn]:
+    def command(self, *args: Argument) -> Callable[[SyncAsync], SyncAsync]:
         """Decorator to register a function as a CLI command with arguments."""
-        def decorator(func: CommandFn) -> CommandFn:
+        def decorator(func: SyncAsync) -> SyncAsync:
             subparser = self._subparsers.add_parser(func.__name__, help=func.__doc__)
 
             for arg_args, arg_kwargs in args:
@@ -41,11 +41,11 @@ class CLI:
             return func
         return decorator
 
-    def run(self) -> int:
+    def run(self) -> Any:
         """Parse CLI arguments and execute the corresponding command."""
         args = self._parser.parse_args()
 
-        if not (handler := cast(CommandFn | None, getattr(args, "handler", None))):
+        if not (handler := cast(SyncAsync | None, getattr(args, "handler", None))):
             self._parser.print_help()
             return 1
 
@@ -54,8 +54,12 @@ class CLI:
             for key in inspect.signature(handler).parameters.keys()
         }
 
-        if asyncio.iscoroutine(ret := handler(**kwargs)):
-            return asyncio.run(ret)
+        try:
+            if asyncio.iscoroutine(ret := handler(**kwargs)):
+                return asyncio.run(ret)
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
         return ret
 
