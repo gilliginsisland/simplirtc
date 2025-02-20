@@ -7,8 +7,10 @@ requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=24.1.0",
     "aiohttp>=3.11.11",
+    "boto3>=1.36.24",
     "pydantic>=2.10.6",
     "simplisafe-python>=2024.1.0",
+    "types-boto3[kinesis-video-webrtc-storage]>=1.36.24",
 ]
 
 [build-system]

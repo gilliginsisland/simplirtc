@@ -1,11 +1,12 @@
 import json
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, web
 from simplipy.system.v3 import SystemV3
 
 from . import SimpliRTC
 from .cli import CLI, argument
 from .auth import Token, auth_flow
+from .whep import create_whep_app
 
 
 # Initialize CLI instance
@@ -47,8 +48,18 @@ async def cameras(token: str) -> None:
 
 
 @cli.command(
-	argument("--camera", type=str, required=True, help="Camera serial number"),
-	argument("--location", type=str, required=True, help="Location ID"),
+	argument(
+		"--camera",
+		type=str,
+		required=True,
+		help="Camera serial number",
+	),
+	argument(
+		"--location",
+		type=str,
+		required=True,
+		help="Location ID",
+	),
 )
 async def stream(token: str, camera: str, location: str) -> None:
 	"""Create the aiohttp session and run."""
@@ -63,6 +74,33 @@ async def stream(token: str, camera: str, location: str) -> None:
 		)
 
 	print(uri)
+
+
+@cli.command(
+	argument(
+		'-a', '--address',
+		help='The address to listen on.',
+		type=str,
+		default='0.0.0.0',
+	),
+	argument(
+		'-p', '--port',
+		help='The port to listen on.',
+		type=int,
+		default=8080,
+	),
+)
+async def whep(token: str, address: str, port: int) -> None:
+	"""Create the aiohttp session and run."""
+	async with ClientSession() as session:
+		simplirtc = await SimpliRTC.async_from_token_file(token, session=session)
+		app = create_whep_app(simplirtc)
+
+		runner = web.AppRunner(app)
+		await runner.setup()
+
+		site = web.TCPSite(runner, host=address, port=port)
+		await site.start()
 
 
 def main() -> int:
